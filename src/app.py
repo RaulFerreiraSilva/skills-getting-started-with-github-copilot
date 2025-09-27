@@ -38,12 +38,19 @@ class SignupRequest(BaseModel):
 def unregister_from_activity(activity_name: str, req: SignupRequest):
     """Remove a student from an activity"""
     email = req.email
-    if activity_name not in activities:
+    # Find the activity in MongoDB
+    activity = activities_collection.find_one({"name": activity_name})
+    if not activity:
         raise HTTPException(status_code=404, detail="Activity not found")
-    activity = activities[activity_name]
     if email not in activity["participants"]:
         raise HTTPException(status_code=400, detail="Student not registered")
-    activity["participants"].remove(email)
+    # Remove the student using MongoDB update
+    result = activities_collection.update_one(
+        {"name": activity_name},
+        {"$pull": {"participants": email}}
+    )
+    if result.modified_count == 0:
+        raise HTTPException(status_code=500, detail="Failed to update activity")
     return {"message": f"Unregistered {email} from {activity_name}"}
 
 
